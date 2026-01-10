@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code cho mn nhìn cho dễ</title>
+    <style>
+        pre {
+            font-size: 20px;
+        }
+
+        .sidebar {
+            position: fixed;
+            right: 0;
+            top: 0;
+            width: 25%;
+            height: 1vh;
+        }
+
+        label[for="one"], .app:has(#one:checked) .lcd {
+            background: #ffebeb;
+        }
+
+        label[for="two"], .app:has(#two:checked) .servo {
+            background: #daffd7;
+        }
+
+        label[for="three"], .app:has(#three:checked) .fire {
+          background: #cdfaff;
+        }
+
+        label[for="four"], .app:has(#four:checked) .full {
+          background: #fbcdff;
+        }
+
+        label[for="five"], .app:has(#five:checked) .bluetooth {
+          background: #fffcaf;
+        }
+    </style>
+</head>
+
+<body>
+<div class="app">
+    <div class="sidebar">
+        <input type="checkbox" id="one"> <label for="one">LCD và nút + menu</label> <br>
+        <input type="checkbox" id="two"> <label for="two">Servo và ultra sonic module (cảm biến khoảng cách)</label><br>
+        <input type="checkbox" id="three"> <label for="three">Cảm biến lửa</label><br>
+        <input type="checkbox" id="four"> <label for="four">Cảm biến đầy</label><br>
+        <input type="checkbox" id="five"> <label for="five">Bluetooth</label>
+    </div>
+
+    <pre class="code">
+#include &lt;LiquidCrystal_I2C.h&gt;
+#include &lt;Servo.h&gt;
+  
+  <code class="lcd">void display();</code>
+  <code class="servo">void buzzerOn();</code>
+<code class="lcd">  void handleBack();
+  void handleEnter();</code>
+  <code class="servo">void openTrashcan();</code>
+  
+<code class="lcd">  // ========== Khởi tạo struct ====================
+  typedef struct menuItem MenuItem;
+
+  typedef struct {
+    MenuItem *itemList;
+    int length;
+  } Menu;
+
+  struct menuItem
+  {
+    const char *label;
+    void (*action)();
+    Menu *submenu;
+  };
+
+  // ========== Tạo thành phần trong menu ==========
+  MenuItem tvQuangAnList[] = {
+    {"LE QUANG AN", NULL, NULL},
+    {"MSV: 74DCTT21525", NULL, NULL},
+    {"NS: 03/02/2005", NULL, NULL},
+    {"uwu", NULL, NULL}
+  };
+  Menu tvQuangAn = {tvQuangAnList, 4};
+
+  MenuItem tvTheAnhList[] = {
+    {"SupaNika", NULL, NULL},
+    {"MSV: 74DCTT21169", NULL, NULL},
+    {"NS: 18/10/2005", NULL, NULL},
+    {"OwO", NULL, NULL}
+  };
+  Menu tvTheAnh = {tvTheAnhList, 4};
+
+  MenuItem tvManhHungList[] = {
+    {"DOAN MANH HUNG", NULL, NULL},
+    {"MSV: 74DCTT22214", NULL, NULL},
+    {"NS: 12/06/2005", NULL, NULL},
+    {"Ng tao menu :D", NULL, NULL}
+  };
+  Menu tvManhHung= {tvManhHungList, 4};
+
+  MenuItem tvTrongTanList[] = {
+    {"NGUYEN TRONG TAN", NULL, NULL},
+    {"MSV: 74DCTT22425", NULL, NULL},
+    {"NS: 19/09/2005", NULL, NULL},
+    {"He did nothing", NULL, NULL}
+  };
+  Menu tvTrongTan = {tvTrongTanList, 4};
+
+  MenuItem tvNguyenHoangList[] = {
+    {"TRAN NGUYEN HOANG", NULL, NULL},
+    {"MSV: 74DCTT22089", NULL, NULL},
+    {"NS: 10/09/2005", NULL, NULL},
+    {"SIIUUUUU", NULL, NULL}
+  };
+  Menu tvNguyenHoang = {tvNguyenHoangList, 4};
+
+  MenuItem dsThanhVienItems[] =
+  {{"Le Quang An", NULL, &tvQuangAn},
+  {"Luong The Anh", NULL, &tvTheAnh},
+   {"Tran Nguyen Hoang", NULL, &tvNguyenHoang},
+   {"Doan Manh Hung", NULL, &tvManhHung},
+   {"Nguyen Trong Tan", NULL, &tvTrongTan}};
+  Menu dsThanhVien = {dsThanhVienItems, 5};
+
+  MenuItem features[] =
+  {{"Mo nap", openTrashcan, NULL},
+   {"Bat loa", buzzerOn, NULL}};
+  Menu featuresMenu = {features, 2};
+
+  MenuItem mainMenuItems[] =
+  {{"Thanh vien", NULL, &dsThanhVien},
+   "Tinh nang", NULL, &featuresMenu};
+  Menu mainMenu = {mainMenuItems, 2};</code>
+  
+  
+  // ========== Tạo con trỏ đến các module ngoài ==========
+  <code class="lcd">LiquidCrystal_I2C lcd(0x27, 20, 4);</code>
+  <code class="servo">Servo myServo;</code>
+  
+  
+  // ========== Đặt tên cho các cổng ======================
+  <code class="lcd">const int bUp = 2, bDown = 3, bEnter = 4, bBack = 5;</code>
+  <code class="full">const int ledFull = 6, ledEmpty = 7</code>, <code class="fire">ledFire = 13;</code>
+  
+<code class="servo">  const int ultraSonicEcho = 8, ultraSonicTrig = 9;
+  const int servo = 10;</code>
+  
+  <code class="fire">const int fireSensor = 11</code>, <code class="full">fullSensor = 12;</code>
+  
+  
+<code class="lcd">  // ========== Stack cho menu ============================
+  Menu *menuStack[3];
+  int topStack = 0;
+  Menu *currentMenu;
+
+  int selectedIndex = 0;
+  int scrollOffset = 0;</code>
+  
+  
+<code class="servo">  // ========== Cảm biến khoảng cách =======================
+  unsigned long duration;
+  int distance;</code>
+  
+  
+<code class="servo">  // ========== Timer ======================================
+  unsigned long ultraSonicLastExecuted = 0,
+                servoLastExecuted = 0;
+  
+  bool servoOpened = false;</code>
+  
+  void setup() {
+<code class="lcd">    menuStack[topStack] = &mainMenu;
+    currentMenu = menuStack[topStack];</code>
+  
+    Serial.begin(9600);
+<code class="lcd">    lcd.init();
+    lcd.backlight();</code>
+  
+<code class="servo">    myServo.attach(servo);
+    myServo.write(0);
+
+    pinMode(ultraSonicEcho, INPUT);
+    pinMode(ultraSonicTrig, OUTPUT);</code>
+  
+<code class="full">    pinMode(fullSensor, INPUT);</code>
+<code class="fire">    pinMode(fireSensor, INPUT);</code>
+  
+<code class="lcd">    pinMode(bUp, INPUT_PULLUP);
+    pinMode(bDown, INPUT_PULLUP);
+    pinMode(bEnter, INPUT_PULLUP);
+    pinMode(bBack, INPUT_PULLUP);</code>
+  
+<code class="full">    pinMode(ledFull, OUTPUT);
+    pinMode(ledEmpty, OUTPUT);</code>
+    <code class="fire">pinMode(ledFire, OUTPUT);</code>
+<code class="lcd">    display();</code>
+  }
+  
+  
+  void loop() {
+    // ========== Cảm biến ===================
+<code class="full">    if (digitalRead(fullSensor) == 0) {
+      digitalWrite(ledFull, HIGH);
+      digitalWrite(ledEmpty, LOW);
+    } else {
+      digitalWrite(ledFull, LOW);
+      digitalWrite(ledEmpty, HIGH);
+    }</code>
+  
+<code class="fire">    if (digitalRead(fireSensor) == 0) {
+      digitalWrite(ledFire, HIGH);
+    } else {
+      digitalWrite(ledFire, LOW);
+    }</code>
+  
+  
+<code class="servo">    // ========== Tự động mở nắp =============
+    if (millis() - ultraSonicLastExecuted &gt;= 500) {
+      digitalWrite(ultraSonicTrig, 0);
+      delayMicroseconds(2);
+      digitalWrite(ultraSonicTrig, 1);
+      delayMicroseconds(5);
+      digitalWrite(ultraSonicTrig, 0);
+
+      duration = pulseIn(ultraSonicEcho, HIGH, 30000);
+      distance = int (duration / 2 / 29.412);
+
+      Serial.print(distance);
+      Serial.println(" cm");
+
+      if (distance &gt; 0 && distance &lt;= 15)
+        openTrashcan();
+
+      ultraSonicLastExecuted = millis();
+    }
+
+    if (servoOpened == true && millis() - servoLastExecuted &gt;= 3000){
+      myServo.write(0);
+      servoOpened = false;
+    }</code>
+  
+  
+<code class="bluetooth">    // ========== Bluetooth ==================
+    if (Serial.available() &gt; 0) {
+      char c = Serial.read();
+
+      switch (c) {
+        case 'b':
+          buzzerOn();
+          break;
+        case 't':
+          openTrashcan();
+          break;
+        case '\n':
+        case '\r':
+          break;
+        default:
+          Serial.print("Ko hiểu lệnh: ");
+          Serial.print(c);
+          break;
+      }
+    }</code>
+  
+  
+<code class="lcd">    // ========== Chức năng của nút ==========
+    if (!digitalRead(bUp)) {
+      if (selectedIndex &gt; 0) selectedIndex--;
+      if (selectedIndex &lt; scrollOffset) scrollOffset--;
+      Serial.println(selectedIndex);
+      Serial.println(scrollOffset);
+      display();
+
+      delay(100);
+      while (!digitalRead(bUp));
+    }
+
+    if (!digitalRead(bDown)) {
+      if (selectedIndex &lt; currentMenu-&gt;length-1) selectedIndex++;
+      if (selectedIndex &gt; scrollOffset+2) scrollOffset++;
+      Serial.println(selectedIndex);
+      Serial.println(scrollOffset);
+      display();
+
+      delay(100);
+      while (!digitalRead(bDown));
+    }
+
+    if (!digitalRead(bEnter)) {
+      handleEnter();
+
+      delay(100);
+      while (!digitalRead(bEnter));
+    }
+
+    if (!digitalRead(bBack)) {
+      handleBack();
+      display();
+
+      delay(100);
+      while(!digitalRead(bBack));
+    }
+  }</code>
+  
+  
+  // ========== Các chức năng cho module ==========
+<code class="lcd">  void display() {
+    lcd.clear();
+    int menuLength = currentMenu-&gt;length;
+    lcd.setCursor(0, 0);
+    lcd.print("NHOM 8 -LOP 74DCTT21");
+
+    Serial.println(menuLength);
+
+    // Menu
+    for (int i=scrollOffset, line=1; line&lt;=3 && line&lt;menuLength+1; line++, i++) {
+      lcd.setCursor(0, line);
+      lcd.print(currentMenu-&gt;itemList[i].label);
+      Serial.println(currentMenu-&gt;itemList[i].label);
+    }
+
+    // Selection
+    lcd.setCursor(19, selectedIndex-scrollOffset+1);
+    lcd.print('&lt;');
+  }
+  
+  
+  void handleEnter() {
+    MenuItem chosenItem = currentMenu-&gt;itemList[selectedIndex];
+  
+    if (chosenItem.action != NULL)
+      chosenItem.action();
+  
+    if (chosenItem.submenu != NULL) {
+      currentMenu = chosenItem.submenu;
+      menuStack[++topStack] = currentMenu;
+      selectedIndex = 0;
+      scrollOffset = 0;
+      display();
+    }
+  }
+  
+  
+  void handleBack() {
+    if (topStack == 0) return;
+  
+    menuStack[topStack--] = NULL;
+    currentMenu = menuStack[topStack];
+    selectedIndex = 0;
+    scrollOffset=0;
+  }</code>
+
+
+<code class="fire">  void buzzerOn() {
+    digitalWrite(ledFire, HIGH);
+    delay(1000);
+    digitalWrite(ledFire, LOW);
+  }</code>
+
+<code class="servo">  void openTrashcan() {
+    Serial.println("Servo running");
+    myServo.write(90);
+    servoOpened = true;
+    servoLastExecuted = millis();
+  }
+}</code>
+</pre>
+</div>
+
+</body>
+</html>
